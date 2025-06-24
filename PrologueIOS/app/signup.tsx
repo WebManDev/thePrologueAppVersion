@@ -1,16 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { auth } from "../firebaseConfig";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function LoginScreen() {
+export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
   const { role } = useLocalSearchParams();
@@ -22,42 +20,23 @@ export default function LoginScreen() {
   const gradientLocations = [0, 0.4, 0.65, 1];
   const buttonStyle = [styles.button, isMember && styles.buttonMember, loading && styles.buttonDisabled];
   const logoText = "PROLOGUE";
-  const titleText = isMember ? "Welcome Back, Member!" : "Welcome Back, Coach!";
-  const subtitleText = isMember ? "Sign in to continue training" : "Sign in to continue coaching";
-  const buttonText = loading ? "Signing in..." : "SIGN IN";
+  const titleText = isMember ? "Create your member account" : "Create your account";
+  const subtitleText = isMember ? "Sign up to start your training" : "Sign up to start your journey";
+  const buttonText = loading ? "Signing up..." : "SIGN UP";
   const googleBtnText = "Continue with Google";
-  const signupText = "Don't have an account? ";
-  const signupLinkText = "Sign up";
+  const footerText = isMember ? "Already have a member account? " : "Already have an account? ";
+  const loginLinkText = "Sign in";
 
-  const handleLogin = async () => {
+  const handleSignup = async () => {
     setLoading(true);
     setError("");
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      if (role === "athlete") {
-        router.replace("/Dashboard");
-      } else if (role === "member") {
-        router.replace({ pathname: '/memberdashboard' });
-      } else {
-        setLoggedIn(true);
-      }
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-    } finally {
+    // TODO: Implement Firebase signup logic
+    setTimeout(() => {
       setLoading(false);
-    }
+      // On success, navigate to login
+      router.replace({ pathname: '/login', params: { role } });
+    }, 1000);
   };
-
-  if (loggedIn) {
-    return (
-      <View style={styles.bg}>
-        <View style={styles.card}>
-          <Text style={styles.successText}>You are logged in!</Text>
-        </View>
-        <StatusBar style="light" />
-      </View>
-    );
-  }
 
   return (
     <LinearGradient colors={gradientColors as [string, string, string, string]} locations={gradientLocations as [number, number, number, number]} style={styles.bg} start={{x:0, y:0}} end={{x:1, y:1}}>
@@ -67,7 +46,7 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>{subtitleText}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter your email"
+          placeholder="Email"
           placeholderTextColor="#94a3b8"
           autoCapitalize="none"
           keyboardType="email-address"
@@ -76,16 +55,24 @@ export default function LoginScreen() {
         />
         <TextInput
           style={styles.input}
-          placeholder="Enter your password"
+          placeholder="Password"
           placeholderTextColor="#94a3b8"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          placeholderTextColor="#94a3b8"
+          secureTextEntry
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+        />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <TouchableOpacity
           style={buttonStyle}
-          onPress={handleLogin}
+          onPress={handleSignup}
           disabled={loading}
         >
           <Text style={styles.buttonText}>{buttonText}</Text>
@@ -94,8 +81,8 @@ export default function LoginScreen() {
           <Text style={styles.googleBtnText}>{googleBtnText}</Text>
         </TouchableOpacity>
         <Text style={styles.footerText}>
-          {signupText}
-          <Text style={styles.link} onPress={() => router.push({ pathname: '/signup', params: { role } })}>{signupLinkText}</Text>
+          {footerText}
+          <Text style={styles.link} onPress={() => router.replace({ pathname: '/login', params: { role } })}>{loginLinkText}</Text>
         </Text>
       </View>
       <StatusBar style="light" />
@@ -175,6 +162,10 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: "#fdba74",
   },
+  buttonMember: {
+    backgroundColor: '#2563eb', // blue
+    shadowColor: '#2563eb',
+  },
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
@@ -202,12 +193,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: "center",
   },
-  successText: {
-    color: "#22c55e",
-    fontSize: 22,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
   footerText: {
     color: "#64748b",
     marginTop: 8,
@@ -218,9 +203,5 @@ const styles = StyleSheet.create({
     color: "#f97316",
     fontWeight: "bold",
     textDecorationLine: "underline",
-  },
-  buttonMember: {
-    backgroundColor: '#2563eb', // blue
-    shadowColor: '#2563eb',
   },
 }); 
