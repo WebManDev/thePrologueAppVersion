@@ -13,7 +13,7 @@ export default function RoleSelectorScreen() {
       key: "member",
       icon: "💪",
       title: "MEMBER",
-      desc: "Train with elite athletes • Personalized coaching • Level up your performance",
+      desc: "Train with elite coaches",
       gradient: ["#3b82f6", "#1d4ed8"] as const,
       accentGradient: ["#60a5fa", "#3b82f6"] as const,
       stats: "2.1k athletes training",
@@ -22,7 +22,7 @@ export default function RoleSelectorScreen() {
       key: "athlete",
       icon: "🏆",
       title: "ATHLETE", 
-      desc: "Share your expertise • Coach others • Build your legacy in sports",
+      desc: "Share your expertise",
       gradient: ["#f59e0b", "#d97706"] as const,
       accentGradient: ["#fbbf24", "#f59e0b"] as const,
       stats: "847 coaches active",
@@ -59,15 +59,11 @@ export default function RoleSelectorScreen() {
             </View>
           </LinearGradient>
           <Text style={styles.logo}>PROLOGUE</Text>
-          <Text style={styles.tagline}>Athletic Excellence ⚡</Text>
         </View>
 
-        {/* Sporty Title Section */}
+        {/* Title Section */}
         <View style={styles.titleSection}>
           <Text style={styles.title}>Choose Your Path</Text>
-          <Text style={styles.subtitle}>
-            Join the athletic community and start your performance journey 🚀
-          </Text>
         </View>
 
         {/* Athletic Cards */}
@@ -195,14 +191,14 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: "center",
-    marginBottom: 36,
+    marginBottom: 48,
   },
   athleticRing: {
     width: 86,
     height: 86,
     borderRadius: 43,
     padding: 3,
-    marginBottom: 14,
+    marginBottom: 18,
   },
   logoContainer: {
     width: 80,
@@ -221,48 +217,32 @@ const styles = StyleSheet.create({
   logo: {
     color: "#fff",
     fontWeight: "800",
-    fontSize: 26,
+    fontSize: 28,
     letterSpacing: 3,
     textTransform: "uppercase",
-    marginBottom: 6,
     textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
-  tagline: {
-    color: "#94a3b8",
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-  },
   titleSection: {
     alignItems: "center",
-    marginBottom: 36,
+    marginBottom: 48,
   },
   title: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: "900",
     color: "#fff",
-    marginBottom: 10,
     letterSpacing: 1,
     textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
-  subtitle: {
-    color: "#cbd5e1",
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 300,
-    opacity: 0.9,
-  },
   options: {
     width: "100%",
-    marginBottom: 28,
+    marginBottom: 40,
   },
   option: {
-    marginBottom: 18,
+    marginBottom: 20,
     borderRadius: 18,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
@@ -287,7 +267,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(15,23,42,0.85)",
     borderRadius: 16,
-    padding: 22,
+    padding: 24,
     position: "relative",
     overflow: "hidden",
   },
@@ -323,9 +303,9 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontWeight: "800",
-    fontSize: 17,
+    fontSize: 18,
     color: "#fff",
-    marginBottom: 5,
+    marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 1.2,
     textShadowColor: "rgba(0,0,0,0.3)",
@@ -334,9 +314,9 @@ const styles = StyleSheet.create({
   },
   optionDesc: {
     color: "#cbd5e1",
-    fontSize: 14,
-    lineHeight: 19,
-    marginBottom: 8,
+    fontSize: 15,
+    lineHeight: 20,
+    marginBottom: 10,
     opacity: 0.9,
   },
   statsRow: {
@@ -418,7 +398,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   progressSection: {
-    marginTop: 16,
+    marginTop: 20,
     alignItems: "center",
   },
   progressDots: {

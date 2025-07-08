@@ -5,6 +5,7 @@ import { auth, db } from '../firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Home, FileText, MessageSquare, MessageCircle, Bell, User } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 interface AthleteData {
   firstName?: string;
@@ -19,6 +20,7 @@ interface AthleteData {
 export default function Dashboard() {
   const [athleteData, setAthleteData] = useState<AthleteData | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -53,6 +55,10 @@ export default function Dashboard() {
       return `${firstName} ${lastName}`;
     }
     return name || 'Student Athlete';
+  };
+
+  const navigateToHome = () => {
+    router.push('/athlete-home');
   };
 
   if (loading) {
@@ -249,9 +255,9 @@ export default function Dashboard() {
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToHome}>
           <Home color="#666" size={20} />
-          <Text style={[styles.navLabel, styles.navActive]}>Home</Text>
+          <Text style={styles.navLabel}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <FileText color="#666" size={20} />

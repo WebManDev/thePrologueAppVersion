@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { StatusBar } from "expo-status-bar";
 import { auth } from "../firebaseConfig";
@@ -15,19 +15,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams();
 
+  const isAthlete = role === "athlete";
   const isMember = role === "member";
-  const gradientColors = isMember
-    ? ["#1e293b", "#274472", "#3b82f6", "#1e293b"]
-    : ["#2d1a47", "#274472", "#ff784e", "#1e293b"];
-  const gradientLocations = [0, 0.4, 0.65, 1];
-  const buttonStyle = [styles.button, isMember && styles.buttonMember, loading && styles.buttonDisabled];
-  const logoText = "PROLOGUE";
-  const titleText = isMember ? "Welcome Back, Member!" : "Welcome Back, Coach!";
-  const subtitleText = isMember ? "Sign in to continue training" : "Sign in to continue coaching";
-  const buttonText = loading ? "Signing in..." : "SIGN IN";
-  const googleBtnText = "Continue with Google";
-  const signupText = "Don't have an account? ";
-  const signupLinkText = "Sign up";
 
   const handleLogin = async () => {
     setLoading(true);
@@ -39,7 +28,7 @@ export default function LoginScreen() {
       } else if (role === "member") {
         router.replace({ pathname: '/memberdashboard' });
       } else {
-      setLoggedIn(true);
+        setLoggedIn(true);
       }
     } catch (err: any) {
       setError(err.message || "Login failed");
@@ -59,51 +48,251 @@ export default function LoginScreen() {
     );
   }
 
+  // Instagram-style dark theme for both athletes and members
   return (
-    <LinearGradient colors={gradientColors as [string, string, string, string]} locations={gradientLocations as [number, number, number, number]} style={styles.bg} start={{x:0, y:0}} end={{x:1, y:1}}>
-      <View style={styles.card}>
-        <Text style={styles.logo}>{logoText}</Text>
-        <Text style={styles.title}>{titleText}</Text>
-        <Text style={styles.subtitle}>{subtitleText}</Text>
-      <TextInput
-        style={styles.input}
-          placeholder="Enter your email"
-        placeholderTextColor="#94a3b8"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-          placeholder="Enter your password"
-        placeholderTextColor="#94a3b8"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      <TouchableOpacity
-          style={buttonStyle}
-        onPress={handleLogin}
-        disabled={loading}
+    <View style={styles.instagramBg}>
+      <StatusBar style="light" />
+      
+      {/* Back Button */}
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => router.back()}
       >
-          <Text style={styles.buttonText}>{buttonText}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.googleBtn}>
-          <Text style={styles.googleBtnText}>{googleBtnText}</Text>
+        <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
-        <Text style={styles.footerText}>
-          {signupText}
-          <Text style={styles.link} onPress={() => router.push({ pathname: '/signup', params: { role } })}>{signupLinkText}</Text>
+      
+      {/* Instagram-style container */}
+      <View style={styles.instagramContainer}>
+        {/* Logo and Title */}
+        <View style={styles.logoTitleContainer}>
+          <Image 
+            source={require("../assets/p.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.instagramTitle}>PROLOGUE</Text>
+        </View>
+        
+        {/* Input Fields */}
+        <View style={styles.instagramInputContainer}>
+          <TextInput
+            style={styles.instagramInput}
+            placeholder="Phone number, username or email"
+            placeholderTextColor="#8e8e93"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          
+          <TextInput
+            style={styles.instagramInput}
+            placeholder="Password"
+            placeholderTextColor="#8e8e93"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+          
+          {error ? <Text style={styles.instagramError}>{error}</Text> : null}
+          
+          <TouchableOpacity
+            style={[styles.instagramLoginBtn, loading && styles.instagramLoginBtnDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.instagramLoginText}>
+              {loading ? "Logging in..." : "Log In"}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.forgotPassword}>
+            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Divider */}
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.dividerLine} />
+        </View>
+        
+        {/* Continue with Facebook/Google */}
+        <TouchableOpacity style={styles.facebookBtn}>
+          <Text style={styles.facebookBtnText}>Continue as Coach</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Bottom signup */}
+      <View style={styles.instagramBottomContainer}>
+        <Text style={styles.instagramBottomText}>
+          Don't have an account? {" "}
+          <Text 
+            style={styles.instagramSignupLink} 
+            onPress={() => router.push({ pathname: '/signup', params: { role } })}
+          >
+            Sign up
+          </Text>
         </Text>
       </View>
-      <StatusBar style="light" />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Instagram-style dark theme for athletes
+  instagramBg: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    paddingHorizontal: 32,
+    justifyContent: "center",
+  },
+  backButton: {
+    position: "absolute",
+    top: 60,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  instagramContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  logoTitleContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  logoImage: {
+    width: 48,
+    height: 48,
+    marginBottom: 12,
+  },
+  instagramTitle: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "400",
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  instagramLogo: {
+    color: "#fff",
+    fontSize: 32,
+    fontWeight: "bold",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: 60,
+    textAlign: "center",
+  },
+  instagramInputContainer: {
+    width: "100%",
+    maxWidth: 350,
+  },
+  instagramInput: {
+    backgroundColor: "#2a2a2a",
+    borderWidth: 1,
+    borderColor: "#404040",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    fontWeight: "400",
+    color: "#fff",
+    marginBottom: 12,
+  },
+  instagramError: {
+    color: "#ff3b30",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  instagramLoginBtn: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  instagramLoginBtnDisabled: {
+    backgroundColor: "#2563eb",
+    opacity: 0.6,
+  },
+  instagramLoginText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  forgotPassword: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  forgotPasswordText: {
+    color: "#3b82f6",
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 350,
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#38383a",
+  },
+  dividerText: {
+    color: "#8e8e93",
+    fontSize: 14,
+    fontWeight: "600",
+    marginHorizontal: 16,
+  },
+  facebookBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: 350,
+    paddingVertical: 14,
+  },
+  facebookBtnText: {
+    color: "#3b82f6",
+    fontSize: 16,
+    fontWeight: "400",
+  },
+  instagramBottomContainer: {
+    position: "absolute",
+    bottom: 50,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  instagramBottomText: {
+    color: "#999",
+    fontSize: 14,
+    fontWeight: "400",
+    textAlign: "center",
+  },
+  instagramSignupLink: {
+    color: "#3b82f6",
+    fontWeight: "400",
+  },
+
+  // Original styles for members
   bg: {
     flex: 1,
     backgroundColor: "#1e293b",

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Image } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowLeft } from 'lucide-react-native';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState("");
@@ -14,18 +15,7 @@ export default function SignupScreen() {
   const { role } = useLocalSearchParams();
 
   const isMember = role === "member";
-  const gradientColors = isMember
-    ? ["#1e293b", "#274472", "#3b82f6", "#1e293b"]
-    : ["#2d1a47", "#274472", "#ff784e", "#1e293b"];
-  const gradientLocations = [0, 0.4, 0.65, 1];
-  const buttonStyle = [styles.button, isMember && styles.buttonMember, loading && styles.buttonDisabled];
-  const logoText = "PROLOGUE";
-  const titleText = isMember ? "Create your member account" : "Create your account";
-  const subtitleText = isMember ? "Sign up to start your training" : "Sign up to start your journey";
-  const buttonText = loading ? "Signing up..." : "SIGN UP";
-  const googleBtnText = "Continue with Google";
-  const footerText = isMember ? "Already have a member account? " : "Already have an account? ";
-  const loginLinkText = "Sign in";
+  const isAthlete = role === "athlete";
 
   const handleSignup = async () => {
     setLoading(true);
@@ -38,58 +28,230 @@ export default function SignupScreen() {
     }, 1000);
   };
 
+  const handleBack = () => {
+    router.back();
+  };
+
+  // Instagram-style design for both athletes and members
   return (
-    <LinearGradient colors={gradientColors as [string, string, string, string]} locations={gradientLocations as [number, number, number, number]} style={styles.bg} start={{x:0, y:0}} end={{x:1, y:1}}>
-      <View style={styles.card}>
-        <Text style={styles.logo}>{logoText}</Text>
-        <Text style={styles.title}>{titleText}</Text>
-        <Text style={styles.subtitle}>{subtitleText}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#94a3b8"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#94a3b8"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          placeholderTextColor="#94a3b8"
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <TouchableOpacity
-          style={buttonStyle}
-          onPress={handleSignup}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>{buttonText}</Text>
+    <View style={athleteStyles.instagramBg}>
+      <StatusBar style="light" />
+      
+      {/* Back Button */}
+      <TouchableOpacity style={athleteStyles.backButton} onPress={handleBack}>
+        <ArrowLeft size={24} color="#ffffff" />
+      </TouchableOpacity>
+
+      {/* Instagram-style container */}
+      <View style={athleteStyles.instagramContainer}>
+        {/* Logo and Title */}
+        <View style={athleteStyles.logoTitleContainer}>
+          <Image 
+            source={require('../assets/p.png')} 
+            style={athleteStyles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={athleteStyles.instagramTitle}>PROLOGUE</Text>
+        </View>
+        
+        {/* Input Fields */}
+        <View style={athleteStyles.instagramInputContainer}>
+          <TextInput
+            style={athleteStyles.instagramInput}
+            placeholder="Phone number, username or email"
+            placeholderTextColor="#8e8e93"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          
+          <TextInput
+            style={athleteStyles.instagramInput}
+            placeholder="Password"
+            placeholderTextColor="#8e8e93"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+          
+          <TextInput
+            style={athleteStyles.instagramInput}
+            placeholder="Confirm Password"
+            placeholderTextColor="#8e8e93"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+          
+          {error ? <Text style={athleteStyles.instagramError}>{error}</Text> : null}
+          
+          <TouchableOpacity
+            style={[athleteStyles.instagramSignupBtn, loading && athleteStyles.instagramSignupBtnDisabled]}
+            onPress={handleSignup}
+            disabled={loading}
+          >
+            <Text style={athleteStyles.instagramSignupText}>
+              {loading ? "Signing up..." : "Sign up"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Divider */}
+        <View style={athleteStyles.dividerContainer}>
+          <View style={athleteStyles.dividerLine} />
+          <Text style={athleteStyles.dividerText}>OR</Text>
+          <View style={athleteStyles.dividerLine} />
+        </View>
+
+        {/* Continue as Coach */}
+        <TouchableOpacity style={athleteStyles.coachBtn}>
+          <Text style={athleteStyles.coachBtnText}>Continue as Coach</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.googleBtn}>
-          <Text style={styles.googleBtnText}>{googleBtnText}</Text>
-        </TouchableOpacity>
-        <Text style={styles.footerText}>
-          {footerText}
-          <Text style={styles.link} onPress={() => router.replace({ pathname: '/login', params: { role } })}>{loginLinkText}</Text>
+      </View>
+      
+      {/* Bottom login */}
+      <View style={athleteStyles.instagramBottomContainer}>
+        <Text style={athleteStyles.instagramBottomText}>
+          Already have an account? {" "}
+          <Text 
+            style={athleteStyles.instagramLoginLink} 
+            onPress={() => router.replace({ pathname: '/login', params: { role } })}
+          >
+            Sign in
+          </Text>
         </Text>
       </View>
-      <StatusBar style="light" />
-    </LinearGradient>
+    </View>
   );
 }
 
+// Athlete Instagram-style design
+const athleteStyles = StyleSheet.create({
+  // Instagram-style dark theme for athletes
+  instagramBg: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    paddingHorizontal: 32,
+    justifyContent: "center",
+  },
+  backButton: {
+    position: "absolute",
+    top: 60,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  instagramContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  logoTitleContainer: {
+    alignItems: "center",
+    marginBottom: 60,
+  },
+  logoImage: {
+    width: 48,
+    height: 48,
+    marginBottom: 16,
+  },
+  instagramTitle: {
+    fontSize: 28,
+    fontWeight: "400",
+    color: "#ffffff",
+    letterSpacing: 2,
+  },
+  instagramInputContainer: {
+    width: "100%",
+    marginBottom: 20,
+  },
+  instagramInput: {
+    backgroundColor: "#1c1c1e",
+    borderWidth: 1,
+    borderColor: "#38383a",
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: "#ffffff",
+    marginBottom: 12,
+    fontWeight: "400",
+  },
+  instagramError: {
+    color: "#ff3b30",
+    fontSize: 14,
+    marginBottom: 12,
+    textAlign: "center",
+    fontWeight: "400",
+  },
+  instagramSignupBtn: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  instagramSignupBtnDisabled: {
+    backgroundColor: "#1e3a8a",
+    opacity: 0.6,
+  },
+  instagramSignupText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 30,
+    width: "100%",
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#38383a",
+  },
+  dividerText: {
+    color: "#8e8e93",
+    fontSize: 14,
+    fontWeight: "500",
+    marginHorizontal: 20,
+  },
+  coachBtn: {
+    borderWidth: 1,
+    borderColor: "#3b82f6",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    width: "100%",
+  },
+  coachBtnText: {
+    color: "#3b82f6",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  instagramBottomContainer: {
+    position: "absolute",
+    bottom: 50,
+    width: "100%",
+    alignItems: "center",
+  },
+  instagramBottomText: {
+    color: "#8e8e93",
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  instagramLoginLink: {
+    color: "#3b82f6",
+    fontWeight: "500",
+  },
+});
+
+// Member original design styles
 const styles = StyleSheet.create({
   bg: {
     flex: 1,
