@@ -39,7 +39,7 @@ export default function LoginScreen() {
       } else if (role === "member") {
         router.replace({ pathname: '/memberdashboard' });
       } else {
-        setLoggedIn(true);
+      setLoggedIn(true);
       }
     } catch (err: any) {
       setError(err.message || "Login failed");
@@ -65,34 +65,34 @@ export default function LoginScreen() {
         <Text style={styles.logo}>{logoText}</Text>
         <Text style={styles.title}>{titleText}</Text>
         <Text style={styles.subtitle}>{subtitleText}</Text>
-        <TextInput
-          style={styles.input}
+      <TextInput
+        style={styles.input}
           placeholder="Enter your email"
-          placeholderTextColor="#94a3b8"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
+        placeholderTextColor="#94a3b8"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+      />
+      <TextInput
+        style={styles.input}
           placeholder="Enter your password"
-          placeholderTextColor="#94a3b8"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <TouchableOpacity
+        placeholderTextColor="#94a3b8"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      <TouchableOpacity
           style={buttonStyle}
-          onPress={handleLogin}
-          disabled={loading}
-        >
+        onPress={handleLogin}
+        disabled={loading}
+      >
           <Text style={styles.buttonText}>{buttonText}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.googleBtn}>
           <Text style={styles.googleBtnText}>{googleBtnText}</Text>
-        </TouchableOpacity>
+      </TouchableOpacity>
         <Text style={styles.footerText}>
           {signupText}
           <Text style={styles.link} onPress={() => router.push({ pathname: '/signup', params: { role } })}>{signupLinkText}</Text>
