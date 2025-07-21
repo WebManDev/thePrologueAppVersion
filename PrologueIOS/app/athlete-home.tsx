@@ -1,50 +1,118 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import { auth, db } from '../firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { Home, FileText, MessageSquare, MessageCircle, Bell, User, Plus, Search, Filter } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  TextInput, 
+  Alert, 
+  StyleSheet, 
+  Image, 
+  SafeAreaView,
+  RefreshControl,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import { 
+  Heart, 
+  MessageSquare, 
+  Share, 
+  MoreHorizontal, 
+  Eye, 
+  Camera, 
+  Video, 
+  Target,
+  Home,
+  Search,
+  Bell,
+  User,
+  Zap,
+  Send,
+  Bookmark,
+  ThumbsUp,
+  Edit,
+  Trash2,
+  X,
+  FileText,
+  MessageCircle,
+  TrendingUp
+} from "lucide-react-native";
+import { auth, db } from "../firebaseConfig";
+import { 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  doc, 
+  updateDoc, 
+  arrayUnion, 
+  arrayRemove, 
+  getDoc, 
+  deleteDoc,
+  getDocs,
+  where
+} from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-interface AthleteData {
-  firstName?: string;
-  lastName?: string;
-  name?: string;
-  bio?: string;
-  email?: string;
-  coverPhotoUrl?: string;
-  [key: string]: any;
+const { width } = Dimensions.get('window');
+
+interface Post {
+  id: string;
+  content: string;
+  createdBy: string;
+  createdAt: any;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  likes?: number;
+  likedBy?: string[];
+  views?: number;
+  viewedBy?: string[];
+  commentsCount?: number;
+  shares?: number;
+  editedAt?: any;
 }
 
-export default function AthleteHome() {
-  const [athleteData, setAthleteData] = useState<AthleteData | null>(null);
-  const [loading, setLoading] = useState(true);
+interface Profile {
+  firstName: string;
+  lastName: string;
+  profileImageUrl?: string;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  createdBy: string;
+  createdAt: any;
+  likes: string[];
+  parentId?: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+}
+
+export default function AthleteHomeScreen() {
   const router = useRouter();
+  const [profileData, setProfileData] = useState<Profile>({ firstName: "", lastName: "" });
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [profileCache, setProfileCache] = useState<Record<string, Profile>>({});
+  const [postContent, setPostContent] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [comments, setComments] = useState<{ [postId: string]: Comment[] }>({});
+  const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
+  const [showComments, setShowComments] = useState<{ [postId: string]: boolean }>({});
+  const [editingPost, setEditingPost] = useState<string | null>(null);
+  const [editPostContent, setEditPostContent] = useState<{ [key: string]: string }>({});
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState('feed');
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const athleteDoc = await getDoc(doc(db, 'athletes', user.uid));
-          if (athleteDoc.exists()) {
-            setAthleteData(athleteDoc.data() as AthleteData);
-          }
-        } catch (error) {
-          console.error('Error fetching athlete data:', error);
-        }
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const navigateToProfile = () => {
-    router.push('/Dashboard');
-  };
-
+  // Helper functions for profile display
   const getInitials = (firstName?: string, lastName?: string): string => {
     if (!firstName && !lastName) return 'AL';
     const first = firstName ? firstName.charAt(0).toUpperCase() : '';
@@ -52,544 +120,1146 @@ export default function AthleteHome() {
     return first + last || 'AL';
   };
 
-  const getDisplayName = (firstName?: string, lastName?: string, name?: string): string => {
+  const getDisplayName = (firstName?: string, lastName?: string): string => {
     if (firstName && lastName) {
       return `${firstName} ${lastName}`;
     }
-    return name || 'Student Athlete';
+    return firstName || 'Student Athlete';
   };
 
-  if (loading) {
+  // Load user profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!auth.currentUser) return;
+      try {
+        const userDoc = await getDoc(doc(db, 'athletes', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setProfileData({
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            profileImageUrl: data.profileImageUrl || undefined,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    };
+    loadProfile();
+  }, []);
+
+  // Fetch posts
+  useEffect(() => {
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post)));
+    });
+    return () => unsub();
+  }, []);
+
+  // Fetch user profiles for posts
+  useEffect(() => {
+    const missingUids = posts
+      .map(post => post.createdBy)
+      .filter(uid => uid && !profileCache[uid]);
+    
+    if (missingUids.length === 0) return;
+    
+    missingUids.forEach(async (uid) => {
+      try {
+        const userDoc = await getDoc(doc(db, 'athletes', uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setProfileCache(prev => ({ ...prev, [uid]: data as Profile }));
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+      }
+    });
+  }, [posts, profileCache]);
+
+  // Listen for comments for each post
+  useEffect(() => {
+    posts.forEach((post) => {
+      if (!post.id) return;
+      const commentsRef = collection(db, "posts", post.id, "comments");
+      const q = query(commentsRef, orderBy("createdAt", "asc"));
+      const unsub = onSnapshot(q, (snapshot) => {
+        setComments((prev) => ({ 
+          ...prev, 
+          [post.id]: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment))
+        }));
+      });
+      return () => unsub();
+    });
+  }, [posts]);
+
+  // Post submit handler
+  const handlePostSubmit = async () => {
+    if (!postContent.trim()) return;
+    setPosting(true);
+    try {
+      const user = auth.currentUser;
+      await addDoc(collection(db, "posts"), {
+        content: postContent,
+        createdBy: user?.uid || "anon",
+        userType: "athlete",
+        createdAt: serverTimestamp(),
+        likes: 0,
+        likedBy: [],
+        views: 0,
+        viewedBy: [],
+        commentsCount: 0,
+        shares: 0,
+      });
+      setPostContent("");
+    } catch (err) {
+      Alert.alert("Error", "Failed to create post");
+      console.error("Failed to post:", err);
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  // Media picker (simplified)
+  const pickMedia = async () => {
+    Alert.alert("Media", "Photo/Video picker coming soon!");
+  };
+
+  // Like handler
+  const handleLike = useCallback(async (postId: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const postRef = doc(db, "posts", postId);
+      const postSnap = await getDoc(postRef);
+      
+      if (postSnap.exists()) {
+        const postData = postSnap.data();
+        const likedBy = postData.likedBy || [];
+        const likes = postData.likes || 0;
+        
+        if (likedBy.includes(user.uid)) {
+          // Unlike
+          await updateDoc(postRef, {
+            likedBy: arrayRemove(user.uid),
+            likes: Math.max(likes - 1, 0)
+          });
+        } else {
+          // Like
+          await updateDoc(postRef, {
+            likedBy: arrayUnion(user.uid),
+            likes: likes + 1
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
+  }, []);
+
+  // Comment handler
+  const handleAddComment = useCallback(async (postId: string) => {
+    const user = auth.currentUser;
+    const content = commentInputs[postId];
+    if (!user || !content || !content.trim()) return;
+    
+    try {
+      const commentsRef = collection(db, "posts", postId, "comments");
+      await addDoc(commentsRef, {
+        content,
+        createdBy: user.uid,
+        createdAt: serverTimestamp(),
+        likes: [],
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        profileImageUrl: profileData.profileImageUrl
+      });
+      
+      // Update comment count
+      const postRef = doc(db, "posts", postId);
+      const postSnap = await getDoc(postRef);
+      if (postSnap.exists()) {
+        const currentCount = postSnap.data().commentsCount || 0;
+        await updateDoc(postRef, {
+          commentsCount: currentCount + 1
+        });
+      }
+      
+      setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
+  }, [commentInputs, profileData]);
+
+  // Toggle comments visibility
+  const toggleComments = (postId: string) => {
+    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+  };
+
+  // Edit post handlers
+  const handleStartEditPost = useCallback((postId: string, currentContent: string) => {
+    setEditingPost(postId);
+    setEditPostContent((prev) => ({ ...prev, [postId]: currentContent }));
+  }, []);
+
+  const handleEditPost = useCallback(async (postId: string, newContent: string) => {
+    const user = auth.currentUser;
+    if (!user || !newContent || !newContent.trim()) return;
+    const postRef = doc(db, "posts", postId);
+    await updateDoc(postRef, {
+      content: newContent,
+      editedAt: serverTimestamp(),
+    });
+    setEditingPost(null);
+    setEditPostContent((prev) => ({ ...prev, [postId]: "" }));
+  }, []);
+
+  const handleCancelEditPost = useCallback(() => {
+    setEditingPost(null);
+    setEditPostContent({});
+  }, []);
+
+  // Delete post
+  const handleDeletePost = async (postId: string) => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            await deleteDoc(doc(db, "posts", postId));
+          }
+        }
+      ]
+    );
+  };
+
+  // Navigation handlers
+  const handleHomePress = () => {
+    router.push("/Dashboard");
+  };
+
+  const handleContentPress = () => {
+    router.push("/content");
+  };
+
+  const handleProfilePress = () => {
+    router.push("/Dashboard");
+  };
+
+  // Refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Refresh logic here
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
+
+  const renderPost = (post: Post) => {
+    const profile = profileCache[post.createdBy] || {};
+    const isOwner = auth.currentUser && auth.currentUser.uid === post.createdBy;
+    const postComments = comments[post.id] || [];
+    const commentCount = postComments.length;
+    const likeCount = post.likes || 0;
+    const isLiked = post.likedBy && auth.currentUser ? post.likedBy.includes(auth.currentUser.uid) : false;
+    
+    // Check if post is new (within 24 hours)
+    let isNew = false;
+    if (post.createdAt && post.createdAt.toDate) {
+      const now = new Date();
+      const created = post.createdAt.toDate();
+      isNew = (now.getTime() - created.getTime()) < 24 * 60 * 60 * 1000;
+    }
+
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text>Loading...</Text>
+      <View key={post.id} style={[styles.postCard, isNew && styles.newPostCard]}>
+        {/* Post Header */}
+        <View style={styles.postHeader}>
+          <View style={styles.postUserInfo}>
+            <View style={styles.avatarContainer}>
+              {profile.profileImageUrl ? (
+                <Image 
+                  source={{ uri: profile.profileImageUrl }} 
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <User size={24} color="#9CA3AF" />
+                </View>
+              )}
+            </View>
+            <View style={styles.userDetails}>
+              <Text style={styles.userName}>
+                {profile.firstName && profile.lastName
+                  ? `${profile.firstName} ${profile.lastName}`
+                  : profile.firstName || "User"}
+              </Text>
+              <View style={styles.postMeta}>
+                <Text style={styles.timeText}>
+                  {post.createdAt && post.createdAt.toDate 
+                    ? new Date(post.createdAt.toDate()).toLocaleDateString() 
+                    : "Just now"}
+                </Text>
+                <Text style={styles.dotSeparator}>•</Text>
+                <View style={styles.viewsContainer}>
+                  <Eye size={12} color="#6B7280" />
+                  <Text style={styles.viewsText}>{post.views || 0}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+          <View style={styles.postActions}>
+            {isNew && (
+              <View style={styles.newBadge}>
+                <Text style={styles.newBadgeText}>New</Text>
+              </View>
+            )}
+            {isOwner && (
+              <TouchableOpacity style={styles.moreButton}>
+                <MoreHorizontal size={20} color="#6B7280" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Post Content */}
+        <View style={styles.postContent}>
+          {editingPost === post.id ? (
+            <View style={styles.editContainer}>
+              <TextInput
+                style={styles.editInput}
+                value={editPostContent[post.id] || ""}
+                onChangeText={(text) => setEditPostContent(prev => ({ ...prev, [post.id]: text }))}
+                placeholder="Edit your post..."
+                multiline
+                autoFocus
+              />
+              <View style={styles.editActions}>
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={handleCancelEditPost}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.saveButton}
+                  onPress={() => handleEditPost(post.id, editPostContent[post.id] || "")}
+                >
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View>
+              <Text style={styles.postText}>{post.content}</Text>
+              {post.editedAt && (
+                <Text style={styles.editedText}>(edited)</Text>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Media Content */}
+        {post.mediaUrl && (
+          <View style={styles.mediaContainer}>
+            {post.mediaType === 'image' ? (
+              <Image source={{ uri: post.mediaUrl }} style={styles.mediaImage} />
+            ) : (
+              <View style={styles.videoPlaceholder}>
+                <Video size={48} color="#6B7280" />
+                <Text style={styles.videoText}>Video Content</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Enhanced Engagement Stats */}
+        <View style={styles.engagementStats}>
+          <View style={styles.statsLeft}>
+            <View style={styles.likesContainer}>
+              <View style={styles.reactionIcons}>
+                <View style={[styles.reactionIcon, { backgroundColor: '#EF4444' }]}>
+                  <Heart size={10} color="white" />
+                </View>
+                <View style={[styles.reactionIcon, { backgroundColor: '#3B82F6' }]}>
+                  <ThumbsUp size={10} color="white" />
+                </View>
+              </View>
+              <Text style={styles.statsText}>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</Text>
+            </View>
+            <Text style={styles.statsText}>{commentCount} {commentCount === 1 ? 'comment' : 'comments'}</Text>
+            <Text style={styles.statsText}>{post.shares || 0} {(post.shares || 0) === 1 ? 'share' : 'shares'}</Text>
+          </View>
+        </View>
+
+        {/* Enhanced Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.actionButton, isLiked && styles.likedButton]}
+            onPress={() => handleLike(post.id)}
+          >
+            <Heart size={20} color={isLiked ? "#EF4444" : "#6B7280"} />
+            <Text style={[styles.actionText, isLiked && styles.likedText]}>Like</Text>
+            <Text style={styles.actionCount}>{likeCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => toggleComments(post.id)}
+          >
+            <MessageSquare size={20} color="#6B7280" />
+            <Text style={styles.actionText}>Comment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton}>
+            <Share size={20} color="#6B7280" />
+            <Text style={styles.actionText}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton}>
+            <Bookmark size={20} color="#6B7280" />
+            <Text style={styles.actionText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Comments Section */}
+        {showComments[post.id] && (
+          <View style={styles.commentsSection}>
+            <View style={styles.commentInput}>
+              <View style={styles.commentAvatar}>
+                {profileData.profileImageUrl ? (
+                  <Image 
+                    source={{ uri: profileData.profileImageUrl }} 
+                    style={styles.smallAvatar}
+                  />
+                ) : (
+                  <View style={[styles.smallAvatar, styles.avatarPlaceholder]}>
+                    <User size={16} color="#9CA3AF" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.commentInputContainer}>
+                <TextInput
+                  style={styles.commentTextInput}
+                  placeholder="Write a comment..."
+                  value={commentInputs[post.id] || ""}
+                  onChangeText={(text) => setCommentInputs(prev => ({ ...prev, [post.id]: text }))}
+                  onSubmitEditing={() => handleAddComment(post.id)}
+                />
+                <TouchableOpacity 
+                  style={styles.sendButton}
+                  onPress={() => handleAddComment(post.id)}
+                >
+                  <Send size={16} color="#3B82F6" />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Comments List */}
+            <View style={styles.commentsList}>
+              {postComments.map((comment) => (
+                <View key={comment.id} style={styles.commentItem}>
+                  <View style={styles.commentAvatar}>
+                    {comment.profileImageUrl ? (
+                      <Image 
+                        source={{ uri: comment.profileImageUrl }} 
+                        style={styles.smallAvatar}
+                      />
+                    ) : (
+                      <View style={[styles.smallAvatar, styles.avatarPlaceholder]}>
+                        <User size={16} color="#9CA3AF" />
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.commentContent}>
+                    <View style={styles.commentBubble}>
+                      <Text style={styles.commentAuthor}>
+                        {comment.firstName && comment.lastName 
+                          ? `${comment.firstName} ${comment.lastName}`
+                          : "User"}
+                      </Text>
+                      <Text style={styles.commentText}>{comment.content}</Text>
+                    </View>
+                    <View style={styles.commentActions}>
+                      <Text style={styles.commentTime}>
+                        {comment.createdAt && comment.createdAt.toDate
+                          ? new Date(comment.createdAt.toDate()).toLocaleDateString()
+                          : "Just now"}
+                      </Text>
+                      <TouchableOpacity style={styles.commentActionButton}>
+                        <Text style={styles.commentActionText}>Like</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.commentActionButton}>
+                        <Text style={styles.commentActionText}>Reply</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
     );
-  }
-
-  const initials = getInitials(athleteData?.firstName, athleteData?.lastName);
-  const displayName = getDisplayName(athleteData?.firstName, athleteData?.lastName, athleteData?.name);
+  };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Header */}
-      <LinearGradient
-        colors={['#f8f9fa', '#ffffff']}
-        style={styles.header}
-      >
-        <View style={styles.headerTop}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>Good morning,</Text>
-            <Text style={styles.userName}>{athleteData?.firstName || 'Athlete'} 👋</Text>
-          </View>
-          <TouchableOpacity style={styles.profileButton} onPress={navigateToProfile}>
-            {athleteData?.coverPhotoUrl ? (
-              <Image source={{ uri: athleteData.coverPhotoUrl }} style={styles.headerProfileImage} />
+      {/* Enhanced Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.logo}>PROLOGUE</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerButton}>
+            <Search size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton}>
+            <Bell size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton} onPress={handleProfilePress}>
+            {profileData.profileImageUrl ? (
+              <Image 
+                source={{ uri: profileData.profileImageUrl }} 
+                style={styles.profileImage}
+              />
             ) : (
-              <View style={styles.headerProfileImage}>
-                <Text style={styles.headerInitials}>{initials}</Text>
+              <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                <User size={20} color="#9CA3AF" />
               </View>
             )}
           </TouchableOpacity>
         </View>
-        
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Search color="#666" size={18} />
-            <Text style={styles.searchText}>Search athletes, sessions...</Text>
-          </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <Filter color="#4a90e2" size={20} />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+      </View>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.actionCard}>
-            <LinearGradient
-              colors={['#4a90e2', '#357abd']}
-              style={styles.actionGradient}
-            >
-              <Plus color="#fff" size={24} />
-              <Text style={styles.actionText}>New Session</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionCard}>
-            <LinearGradient
-              colors={['#f59e0b', '#d97706']}
-              style={styles.actionGradient}
-            >
-              <MessageSquare color="#fff" size={24} />
-              <Text style={styles.actionText}>Get Feedback</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* Performance Overview */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Performance Overview</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.performanceCards}>
-            <View style={styles.performanceCard}>
-              <Text style={styles.performanceIcon}>🎯</Text>
-              <Text style={styles.performanceNumber}>8</Text>
-              <Text style={styles.performanceLabel}>Goals This Week</Text>
-              <Text style={styles.performanceChange}>+2 from last week</Text>
-            </View>
-            
-            <View style={styles.performanceCard}>
-              <Text style={styles.performanceIcon}>📈</Text>
-              <Text style={styles.performanceNumber}>94%</Text>
-              <Text style={styles.performanceLabel}>Completion Rate</Text>
-              <Text style={styles.performanceChange}>+5% improvement</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Recent Activity Feed */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.activityFeed}>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Text style={styles.activityEmoji}>🏆</Text>
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Session completed with Coach Sarah</Text>
-                <Text style={styles.activityTime}>2 hours ago</Text>
-              </View>
-              <View style={styles.activityBadge}>
-                <Text style={styles.activityBadgeText}>New</Text>
-              </View>
-            </View>
-            
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Text style={styles.activityEmoji}>💪</Text>
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Strength training goal achieved</Text>
-                <Text style={styles.activityTime}>1 day ago</Text>
-              </View>
-            </View>
-            
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Text style={styles.activityEmoji}>📝</Text>
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Feedback received on technique</Text>
-                <Text style={styles.activityTime}>2 days ago</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Upcoming Sessions */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>Schedule</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.sessionCard}>
-            <LinearGradient
-              colors={['#ffffff', '#f8f9fa']}
-              style={styles.sessionGradient}
-            >
-              <View style={styles.sessionHeader}>
-                <View style={styles.sessionCoach}>
-                  <View style={styles.coachAvatar}>
-                    <Text style={styles.coachInitials}>MJ</Text>
+      <KeyboardAvoidingView 
+        style={styles.content}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Enhanced Create Post Section */}
+          <View style={styles.createPostCard}>
+            <View style={styles.createPostHeader}>
+              <View style={styles.avatarContainer}>
+                {profileData.profileImageUrl ? (
+                  <Image 
+                    source={{ uri: profileData.profileImageUrl }} 
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                    <User size={24} color="#9CA3AF" />
                   </View>
-                  <View>
-                    <Text style={styles.coachName}>Coach Michael Johnson</Text>
-                    <Text style={styles.sessionType}>Tennis • 1-on-1</Text>
-                  </View>
-                </View>
-                <View style={styles.sessionTime}>
-                  <Text style={styles.sessionDate}>Today</Text>
-                  <Text style={styles.sessionHour}>3:00 PM</Text>
-                </View>
+                )}
               </View>
-              
-              <View style={styles.sessionActions}>
-                <TouchableOpacity style={styles.sessionActionButton}>
-                  <Text style={styles.sessionActionText}>Join Session</Text>
+              <TextInput
+                style={styles.createPostInput}
+                placeholder="What's on your mind?"
+                value={postContent}
+                onChangeText={setPostContent}
+                multiline
+              />
+            </View>
+            <View style={styles.createPostActions}>
+              <View style={styles.createPostButtons}>
+                <TouchableOpacity style={styles.mediaButton}>
+                  <Video size={20} color="#6B7280" />
+                  <Text style={styles.mediaButtonText}>Live Video</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.sessionSecondaryButton}>
-                  <MessageCircle color="#4a90e2" size={16} />
-                  <Text style={styles.sessionSecondaryText}>Message</Text>
+                <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
+                  <Camera size={20} color="#6B7280" />
+                  <Text style={styles.mediaButtonText}>Photo/Video</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mediaButton}>
+                  <Target size={20} color="#6B7280" />
+                  <Text style={styles.mediaButtonText}>Train</Text>
                 </TouchableOpacity>
               </View>
-            </LinearGradient>
+              <TouchableOpacity 
+                style={[styles.postButton, (!postContent.trim() || posting) && styles.postButtonDisabled]}
+                onPress={handlePostSubmit}
+                disabled={!postContent.trim() || posting}
+              >
+                <Text style={styles.postButtonText}>
+                  {posting ? "Posting..." : "Post"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {/* Bottom padding for navigation */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          {/* Enhanced Tab Navigation */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity style={styles.activeTab}>
+              <Zap size={16} color="#3B82F6" />
+              <Text style={styles.activeTabText}>Feed</Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Bottom Navigation */}
+          {/* Posts Feed */}
+          <View style={styles.postsContainer}>
+            {posts.map(renderPost)}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Keep existing Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Home color="#4a90e2" size={20} />
+        <TouchableOpacity style={styles.navItem} onPress={handleHomePress}>
+          <Home size={20} color="#4a90e2" />
           <Text style={[styles.navLabel, styles.navActive]}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <FileText color="#666" size={20} />
+        <TouchableOpacity style={styles.navItem} onPress={handleContentPress}>
+          <FileText size={20} color="#666" />
           <Text style={styles.navLabel}>Content</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <MessageSquare color="#666" size={20} />
+          <MessageSquare size={20} color="#666" />
           <Text style={styles.navLabel}>Feedback</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <MessageCircle color="#666" size={20} />
+          <MessageCircle size={20} color="#666" />
           <Text style={styles.navLabel}>Messages</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Bell color="#666" size={20} />
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/notifications-athlete')}>
+          <Bell size={20} color="#666" />
           <Text style={styles.navLabel}>Notifications</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
-          <User color="#666" size={20} />
+        <TouchableOpacity style={styles.navItem} onPress={handleProfilePress}>
+          <User size={20} color="#666" />
           <Text style={styles.navLabel}>Profile</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F9FAFB',
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   headerLeft: {
     flex: 1,
   },
-  greeting: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
-  },
-  userName: {
+  logo: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
+    letterSpacing: 1,
   },
-  profileButton: {
-    marginLeft: 16,
-  },
-  headerProfileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#4a90e2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerInitials: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  searchContainer: {
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+  headerButton: {
+    padding: 8,
+    borderRadius: 8,
   },
-  searchText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#999',
-  },
-  filterButton: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  scrollContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    marginTop: 20,
-    marginBottom: 32,
-  },
-  actionCard: {
-    flex: 1,
-    marginHorizontal: 6,
+  profileImage: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 4,
+    backgroundColor: '#E5E7EB',
+  },
+  content: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  createPostCard: {
+    backgroundColor: 'white',
+    marginVertical: 8,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  actionGradient: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+  createPostHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  avatarContainer: {
+    marginTop: 4,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E5E7EB',
+  },
+  avatarPlaceholder: {
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  actionText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
+  createPostInput: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    maxHeight: 100,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  sectionContainer: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
+  createPostActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  seeAllText: {
-    fontSize: 14,
-    color: '#4a90e2',
-    fontWeight: '600',
-  },
-  performanceCards: {
+  createPostButtons: {
     flexDirection: 'row',
+    gap: 16,
   },
-  performanceCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 6,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  performanceIcon: {
-    fontSize: 32,
-    marginBottom: 12,
-  },
-  performanceNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  performanceLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  performanceChange: {
-    fontSize: 12,
-    color: '#10b981',
-    fontWeight: '600',
-  },
-  activityFeed: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  activityItem: {
+  mediaButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f3f4',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  activityEmoji: {
-    fontSize: 18,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
+  mediaButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  activityTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  activityBadge: {
-    backgroundColor: '#4a90e2',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  activityBadgeText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  sessionCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
+  postButton: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 24,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  sessionGradient: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+  postButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    elevation: 0,
+    shadowOpacity: 0,
   },
-  sessionHeader: {
+  postButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  tabContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  activeTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  activeTabText: {
+    color: '#3B82F6',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  postsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+  },
+  postCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  newPostCard: {
+    borderColor: '#3B82F6',
+    borderWidth: 2,
+    shadowColor: '#3B82F6',
+    shadowOpacity: 0.2,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 16,
+    paddingBottom: 12,
+  },
+  postUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    gap: 12,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  postMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  timeText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  dotSeparator: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  viewsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewsText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  postActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  newBadge: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  newBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  moreButton: {
+    padding: 4,
+    borderRadius: 8,
+  },
+  postContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  postText: {
+    fontSize: 16,
+    color: '#1F2937',
+    lineHeight: 24,
+  },
+  editedText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  editContainer: {
+    gap: 12,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  cancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  cancelButtonText: {
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  saveButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#3B82F6',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: '500',
+  },
+  mediaContainer: {
+    backgroundColor: '#000',
+    aspectRatio: 16/9,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mediaImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  videoPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  videoText: {
+    color: '#6B7280',
+    fontSize: 16,
+  },
+  engagementStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
-  sessionCoach: {
+  statsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 16,
   },
-  coachAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#4a90e2',
+  likesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reactionIcons: {
+    flexDirection: 'row',
+    marginRight: -8,
+  },
+  reactionIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    borderWidth: 2,
+    borderColor: 'white',
+    marginRight: -8,
   },
-  coachInitials: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
+  statsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  coachName: {
-    fontSize: 16,
+  actionButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 4,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  likedButton: {
+    backgroundColor: '#FEF2F2',
+  },
+  actionText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  likedText: {
+    color: '#EF4444',
+  },
+  actionCount: {
+    fontSize: 14,
+    color: '#6B7280',
     fontWeight: '600',
-    color: '#333',
+  },
+  commentsSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 16,
+  },
+  commentInput: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  commentAvatar: {
+    marginTop: 4,
+  },
+  smallAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+  },
+  commentInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  commentTextInput: {
+    flex: 1,
+    fontSize: 14,
+  },
+  sendButton: {
+    padding: 4,
+    borderRadius: 8,
+  },
+  commentsList: {
+    gap: 12,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentBubble: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  commentAuthor: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 2,
   },
-  sessionType: {
+  commentText: {
     fontSize: 14,
-    color: '#666',
+    color: '#1F2937',
+    lineHeight: 20,
   },
-  sessionTime: {
-    alignItems: 'flex-end',
-  },
-  sessionDate: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  sessionHour: {
-    fontSize: 14,
-    color: '#666',
-  },
-  sessionActions: {
+  commentActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 16,
+    marginTop: 4,
+    paddingLeft: 12,
   },
-  sessionActionButton: {
-    backgroundColor: '#4a90e2',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginRight: 12,
+  commentTime: {
+    fontSize: 12,
+    color: '#6B7280',
   },
-  sessionActionText: {
-    fontSize: 14,
+  commentActionButton: {
+    paddingVertical: 2,
+  },
+  commentActionText: {
+    fontSize: 12,
+    color: '#6B7280',
     fontWeight: '600',
-    color: '#fff',
-  },
-  sessionSecondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  sessionSecondaryText: {
-    fontSize: 14,
-    color: '#4a90e2',
-    marginLeft: 6,
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingTop: 12,
-    paddingBottom: 34,
+    backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
+    paddingTop: 12,
+    paddingBottom: 34,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 8,
+    gap: 4,
   },
   navLabel: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    fontWeight: '500',
   },
   navActive: {
     color: '#4a90e2',

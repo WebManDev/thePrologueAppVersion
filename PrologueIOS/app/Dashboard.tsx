@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { auth, db } from '../firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Home, FileText, MessageSquare, MessageCircle, Bell, User } from 'lucide-react-native';
+import { Home, FileText, MessageSquare, MessageCircle, Bell, User, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 interface AthleteData {
@@ -61,6 +61,10 @@ export default function Dashboard() {
     router.push('/athlete-home');
   };
 
+  const navigateToContent = () => {
+    router.push('/content');
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -80,7 +84,29 @@ export default function Dashboard() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.appName}>PROLOGUE</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.logo}>PROLOGUE</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerButton}>
+            <Search size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton}>
+            <Bell size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton}>
+            {athleteData?.coverPhotoUrl ? (
+              <Image 
+                source={{ uri: athleteData.coverPhotoUrl }} 
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                <User size={20} color="#9CA3AF" />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -88,9 +114,9 @@ export default function Dashboard() {
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
             {athleteData?.coverPhotoUrl ? (
-              <Image source={{ uri: athleteData.coverPhotoUrl }} style={styles.profileImage} />
+              <Image source={{ uri: athleteData.coverPhotoUrl }} style={styles.dashboardProfileImage} />
             ) : (
-              <View style={styles.profileImage}>
+              <View style={styles.dashboardProfileImage}>
                 <Text style={styles.initials}>{initials}</Text>
               </View>
             )}
@@ -259,7 +285,7 @@ export default function Dashboard() {
           <Home color="#666" size={20} />
           <Text style={styles.navLabel}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToContent}>
           <FileText color="#666" size={20} />
           <Text style={styles.navLabel}>Content</Text>
         </TouchableOpacity>
@@ -271,7 +297,7 @@ export default function Dashboard() {
           <MessageCircle color="#666" size={20} />
           <Text style={styles.navLabel}>Messages</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/notifications-athlete')}>
           <Bell color="#666" size={20} />
           <Text style={styles.navLabel}>Notifications</Text>
         </TouchableOpacity>
@@ -296,11 +322,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  appName: {
-    fontSize: 20,
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logo: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
+    letterSpacing: 1,
+  },
+  headerButton: {
+    padding: 8,
+  },
+  profileImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+  },
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollContainer: {
     flex: 1,
@@ -317,7 +368,7 @@ const styles = StyleSheet.create({
   profileImageContainer: {
     marginBottom: 16,
   },
-  profileImage: {
+  dashboardProfileImage: {
     width: 80,
     height: 80,
     borderRadius: 40,

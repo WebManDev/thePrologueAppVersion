@@ -16,7 +16,6 @@ export default function RoleSelectorScreen() {
       desc: "Train with elite coaches",
       gradient: ["#3b82f6", "#1d4ed8"] as const,
       accentGradient: ["#60a5fa", "#3b82f6"] as const,
-      stats: "2.1k athletes training",
     },
     {
       key: "athlete",
@@ -25,7 +24,6 @@ export default function RoleSelectorScreen() {
       desc: "Share your expertise",
       gradient: ["#f59e0b", "#d97706"] as const,
       accentGradient: ["#fbbf24", "#f59e0b"] as const,
-      stats: "847 coaches active",
     },
   ];
 
@@ -110,28 +108,7 @@ export default function RoleSelectorScreen() {
                   <View style={styles.optionTextContainer}>
                     <Text style={styles.optionTitle}>{role.title}</Text>
                     <Text style={styles.optionDesc}>{role.desc}</Text>
-                    
-                    {/* Athletic Stats */}
-                    <View style={styles.statsRow}>
-                      <View style={styles.statsBadge}>
-                        <Text style={styles.statsText}>{role.stats}</Text>
-                      </View>
-                      <View style={styles.liveDot} />
-                      <Text style={styles.liveText}>LIVE</Text>
-                    </View>
                   </View>
-                  
-                  {/* Selection Indicator */}
-                  {selectedRole === role.key && (
-                    <View style={styles.checkContainer}>
-                      <LinearGradient
-                        colors={["#ffffff", "#f8fafc"]}
-                        style={styles.checkmark}
-                      >
-                        <Text style={styles.checkText}>✓</Text>
-                      </LinearGradient>
-                    </View>
-                  )}
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -319,56 +296,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     opacity: 0.9,
   },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statsBadge: {
-    backgroundColor: "rgba(59,130,246,0.15)",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: "rgba(59,130,246,0.3)",
-  },
-  statsText: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#10b981",
-    marginLeft: 8,
-    marginRight: 4,
-  },
-  liveText: {
-    color: "#10b981",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  checkContainer: {
-    zIndex: 2,
-  },
-  checkmark: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  checkText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#334155",
-  },
+
   continueBtn: {
     width: "100%",
     borderRadius: 14,
