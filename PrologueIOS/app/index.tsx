@@ -1,6 +1,6 @@
 import React from "react";
-import RoleSelectorScreen from "./RoleSelectorScreen";
+import AuthLoadingScreen from "./AuthLoadingScreen";
  
 export default function IndexScreen() {
-  return <RoleSelectorScreen />;
+  return <AuthLoadingScreen />;
 } 

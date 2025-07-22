@@ -2,16 +2,34 @@ import React, { useEffect } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebaseConfig";
+import { auth, db } from "../firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function AuthLoadingScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    console.log('AuthLoadingScreen mounted');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', user);
       if (user) {
-        router.replace("/athlete-home");
+        // Check if athlete profile is complete
+        try {
+          const userDoc = await getDoc(doc(db, "athletes", user.uid));
+          console.log('User doc:', userDoc.exists() ? userDoc.data() : null);
+          if (!userDoc.exists() || !userDoc.data().firstName) {
+            console.log('Routing to /athlete-onboarding');
+            router.replace("/athlete-onboarding");
+          } else {
+            console.log('Routing to /Dashboard');
+            router.replace("/Dashboard");
+          }
+        } catch (err) {
+          console.log('Error fetching user doc, routing to /athlete-onboarding', err);
+          router.replace("/athlete-onboarding");
+        }
       } else {
+        console.log('No user, routing to /login');
         router.replace("/login");
       }
     });

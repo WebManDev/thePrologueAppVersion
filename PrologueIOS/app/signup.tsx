@@ -23,8 +23,8 @@ export default function SignupScreen() {
     // TODO: Implement Firebase signup logic
     setTimeout(() => {
       setLoading(false);
-      // On success, navigate to login
-      router.replace({ pathname: '/login', params: { role } });
+      // On success, navigate to onboarding
+      router.replace({ pathname: '/athlete-onboarding', params: { role } });
     }, 1000);
   };
 
