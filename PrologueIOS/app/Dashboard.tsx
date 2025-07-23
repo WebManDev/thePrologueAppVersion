@@ -128,11 +128,11 @@ export default function Dashboard() {
           <FileText size={22} color="#666" />
           <Text style={styles.navLabel}>Content</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/athlete-feedback')}>
           <MessageSquare size={22} color="#666" />
           <Text style={styles.navLabel}>Feedback</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/athlete-messaging')}>
           <MessageCircle size={22} color="#666" />
           <Text style={styles.navLabel}>Messages</Text>
         </TouchableOpacity>
