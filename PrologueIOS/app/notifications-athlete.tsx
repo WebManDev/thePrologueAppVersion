@@ -18,7 +18,6 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { 
-  Bell,
   Search,
   Filter,
   X,
@@ -403,9 +402,9 @@ export default function AthleteNotificationsScreen() {
       case "payment":
         return { icon: Users, color: "#059669", bg: "#ECFDF5" };
       case "system":
-        return { icon: Bell, color: "#6B7280", bg: "#F3F4F6" };
+        return { icon: Star, color: "#6B7280", bg: "#F3F4F6" };
       default:
-        return { icon: Bell, color: "#6B7280", bg: "#F3F4F6" };
+        return { icon: Star, color: "#6B7280", bg: "#F3F4F6" };
     }
   };
 
@@ -785,7 +784,7 @@ export default function AthleteNotificationsScreen() {
             filteredNotifications.map(renderNotificationCard)
           ) : (
             <View style={styles.emptyState}>
-              <Bell size={64} color="#D1D5DB" />
+              <Star size={64} color="#D1D5DB" />
               <Text style={styles.emptyStateTitle}>
                 {hasActiveFilters ? "No notifications found" : "You're all caught up!"}
               </Text>
@@ -821,15 +820,6 @@ export default function AthleteNotificationsScreen() {
         <TouchableOpacity style={styles.navItem}>
           <MessageCircle size={20} color="#666" />
           <Text style={styles.navLabel}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={handleNotificationsPress}>
-          <Bell size={20} color="#4a90e2" />
-          <Text style={[styles.navLabel, styles.navActive]}>Notifications</Text>
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-            </View>
-          )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={handleProfilePress}>
           <User size={20} color="#666" />

@@ -1,29 +1,29 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  StyleSheet,
-  Image,
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  TextInput, 
+  Alert, 
+  StyleSheet, 
+  Image, 
   SafeAreaView,
   ActivityIndicator,
   Modal,
   Platform,
 } from "react-native";
 import { auth, db } from "../firebaseConfig";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  onSnapshot,
-  query,
-  orderBy,
-  doc,
-  updateDoc,
-  getDoc,
+import { 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  doc, 
+  updateDoc, 
+  getDoc, 
   deleteDoc,
   getDocs,
   where,
@@ -193,19 +193,19 @@ export default function AthleteFeedbackScreen() {
       {/* Tabs */}
       <View style={styles.tabsRow}>
         {TABS.map(tab => (
-          <TouchableOpacity
+      <TouchableOpacity 
             key={tab.key}
             style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
             onPress={() => setActiveTab(tab.key)}
-          >
+      >
             <Text style={[styles.tabBtnText, activeTab === tab.key && styles.tabBtnTextActive]}>{tab.label}</Text>
-          </TouchableOpacity>
+      </TouchableOpacity>
         ))}
-      </View>
+    </View>
       <ScrollView style={styles.scroll}>
         {/* Requested Feedback */}
         {activeTab === "requested" && (
-          <View style={styles.tabContent}>
+    <View style={styles.tabContent}>
             {filteredRequestedFeedback.length === 0 ? (
               <View style={styles.emptyState}>
                 <MessageSquare size={48} color="#9CA3AF" />
@@ -218,28 +218,28 @@ export default function AthleteFeedbackScreen() {
                   <View style={styles.cardHeader}>
                     <Text style={styles.cardTitle}>{request.title}</Text>
                     <Text style={styles.cardCategory}>{request.category || 'General'}</Text>
-                  </View>
+            </View>
                   <Text style={styles.cardDesc}>{request.message}</Text>
-                  {request.videoUrl && (
-                    <View style={styles.videoContainer}>
+            {request.videoUrl && (
+              <View style={styles.videoContainer}>
                       <Text style={styles.videoLabel}>Video:</Text>
                       <Text style={styles.videoUrl}>{request.videoUrl}</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity
+              </View>
+            )}
+            <TouchableOpacity 
                     style={styles.completeBtn}
                     onPress={() => handleCompleteFeedback(request)}
-                  >
+            >
                     <Text style={styles.completeBtnText}>Complete Feedback</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
+            </TouchableOpacity>
           </View>
-        )}
+        ))
+            )}
+        </View>
+      )}
         {/* Given Feedback */}
         {activeTab === "given" && (
-          <View style={styles.tabContent}>
+    <View style={styles.tabContent}>
             {filteredGivenFeedback.length === 0 ? (
               <View style={styles.emptyState}>
                 <CheckCircle size={48} color="#9CA3AF" />
@@ -252,24 +252,24 @@ export default function AthleteFeedbackScreen() {
                   <View style={styles.cardHeader}>
                     <Text style={styles.cardTitle}>{feedback.title}</Text>
                     <Text style={styles.cardCategory}>{feedback.category || 'General'}</Text>
-                  </View>
+            </View>
                   <Text style={styles.cardDesc}>{feedback.comment}</Text>
                   <View style={styles.ratingRow}>
                     {[1,2,3,4,5].map(star => (
-                      <Star
+                <Star
                         key={star}
                         size={20}
                         color={star <= (feedback.rating || 0) ? '#FBBF24' : '#D1D5DB'}
                         fill={star <= (feedback.rating || 0) ? '#FBBF24' : 'none'}
-                      />
-                    ))}
+                />
+              ))}
                     <Text style={styles.ratingText}>{feedback.rating}/5</Text>
-                  </View>
+            </View>
                   <Text style={styles.completedText}>
                     Completed on {feedback.createdAt && feedback.createdAt.seconds ? new Date(feedback.createdAt.seconds * 1000).toLocaleDateString() : 'Unknown'}
                   </Text>
-                </View>
-              ))
+          </View>
+        ))
             )}
           </View>
         )}
@@ -308,7 +308,7 @@ export default function AthleteFeedbackScreen() {
               >
                 <Text style={styles.completeBtnText}>{isSubmittingPlatform ? 'Submitting...' : 'Submit Feedback'}</Text>
               </TouchableOpacity>
-            </View>
+      </View>
           </View>
         )}
       </ScrollView>
@@ -326,7 +326,7 @@ export default function AthleteFeedbackScreen() {
                     color={star <= feedbackRating ? '#FBBF24' : '#D1D5DB'}
                     fill={star <= feedbackRating ? '#FBBF24' : 'none'}
                   />
-                </TouchableOpacity>
+          </TouchableOpacity>
               ))}
             </View>
             <Text style={styles.label}>Comment</Text>

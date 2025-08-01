@@ -27,7 +27,6 @@ import {
   Target,
   Home,
   Search,
-  Bell,
   User,
   Zap,
   Send,
@@ -617,9 +616,6 @@ export default function AthleteHomeScreen() {
           <TouchableOpacity style={styles.headerButton}>
             <Search size={24} color="#1F2937" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
-            <Bell size={24} color="#1F2937" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={handleProfilePress}>
             {profileData.profileImageUrl ? (
               <Image 
@@ -728,10 +724,6 @@ export default function AthleteHomeScreen() {
         <TouchableOpacity style={styles.navItem}>
           <MessageCircle size={20} color="#666" />
           <Text style={styles.navLabel}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/notifications-athlete')}>
-          <Bell size={20} color="#666" />
-          <Text style={styles.navLabel}>Notifications</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={handleProfilePress}>
           <User size={20} color="#666" />

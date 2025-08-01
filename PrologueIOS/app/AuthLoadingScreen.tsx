@@ -1,47 +1,69 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
+import RoleSelectorScreen from "./RoleSelectorScreen";
 
 export default function AuthLoadingScreen() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
+  const [showRoleSelector, setShowRoleSelector] = useState(false);
 
   useEffect(() => {
-    console.log('AuthLoadingScreen mounted');
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user);
       if (user) {
-        // Check if athlete profile is complete
         try {
-          const userDoc = await getDoc(doc(db, "athletes", user.uid));
-          console.log('User doc:', userDoc.exists() ? userDoc.data() : null);
-          if (!userDoc.exists() || !userDoc.data().firstName) {
-            console.log('Routing to /athlete-onboarding');
-            router.replace("/athlete-onboarding");
-          } else {
-            console.log('Routing to /Dashboard');
-            router.replace("/Dashboard");
+          // Check if user is an athlete
+          const athleteDoc = await getDoc(doc(db, "athletes", user.uid));
+          if (athleteDoc.exists()) {
+            if (!athleteDoc.data().firstName) {
+              router.replace("/athlete-onboarding");
+            } else {
+              router.replace("/Dashboard");
+            }
+            return;
           }
+
+          // Check if user is a member
+          const memberDoc = await getDoc(doc(db, "members", user.uid));
+          if (memberDoc.exists()) {
+            if (!memberDoc.data().onboardingCompleted) {
+              router.replace("/member-onboarding");
+            } else {
+              router.replace("/member-dashboard");
+            }
+            return;
+          }
+
+          // If no profile found, show role selection
+          setShowRoleSelector(true);
         } catch (err) {
-          console.log('Error fetching user doc, routing to /athlete-onboarding', err);
-          router.replace("/athlete-onboarding");
+          setShowRoleSelector(true);
         }
       } else {
-        console.log('No user, routing to /login');
-        router.replace("/login");
+        setShowRoleSelector(true);
       }
+      setChecking(false);
     });
     return () => unsubscribe();
   }, []);
 
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#3B82F6" />
-      <Text style={styles.text}>Checking authentication...</Text>
-    </View>
-  );
+  if (checking) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={styles.text}>Checking authentication...</Text>
+      </View>
+    );
+  }
+
+  if (showRoleSelector) {
+    return <RoleSelectorScreen />;
+  }
+
+  return null;
 }
 
 const styles = StyleSheet.create({

@@ -1,9 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Image, Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft } from 'lucide-react-native';
+import { auth, db } from '../firebaseConfig';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState("");
@@ -17,15 +20,64 @@ export default function SignupScreen() {
   const isMember = role === "member";
   const isAthlete = role === "athlete";
 
+  console.log('SignupScreen loaded with role:', role, 'isMember:', isMember, 'isAthlete:', isAthlete);
+
   const handleSignup = async () => {
+    console.log('Signup started with role:', role, 'isMember:', isMember, 'isAthlete:', isAthlete);
+    
+    if (!email || !password || !confirmPassword) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
     setError("");
-    // TODO: Implement Firebase signup logic
-    setTimeout(() => {
+
+    try {
+      console.log('Creating Firebase user...');
+      // Create user with Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      console.log('Firebase user created:', user.uid);
+
+      // Save profile to Firestore based on role
+      if (isMember) {
+        console.log('Creating member profile...');
+        await setDoc(doc(db, 'members', user.uid), {
+          email: email,
+          role: 'member',
+          onboardingCompleted: false,
+          createdAt: new Date(),
+        });
+        console.log('Member profile created successfully');
+        console.log('Navigating to member-onboarding...');
+        router.replace('/member-onboarding');
+      } else {
+        console.log('Creating athlete profile...');
+        await setDoc(doc(db, 'athletes', user.uid), {
+          email: email,
+          role: 'athlete',
+          createdAt: new Date(),
+        });
+        console.log('Athlete profile created successfully');
+        console.log('Navigating to athlete-onboarding...');
+        router.replace({ pathname: '/athlete-onboarding', params: { role } });
+      }
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      setError(error.message || 'Signup failed. Please try again.');
       setLoading(false);
-      // On success, navigate to onboarding
-      router.replace({ pathname: '/athlete-onboarding', params: { role } });
-    }, 1000);
+    }
   };
 
   const handleBack = () => {

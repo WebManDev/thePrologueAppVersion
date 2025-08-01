@@ -30,7 +30,6 @@ import {
   Eye, 
   TrendingUp,
   Home,
-  Bell,
   User,
   MessageSquare,
   MessageCircle,
@@ -651,10 +650,6 @@ export default function ContentScreen() {
         <TouchableOpacity style={styles.navItem}>
           <MessageCircle size={20} color="#666" />
           <Text style={styles.navLabel}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/notifications-athlete')}>
-          <Bell size={20} color="#666" />
-          <Text style={styles.navLabel}>Notifications</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={handleProfilePress}>
           <User size={20} color="#666" />
