@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBYUD1AZoCCLBGpICzMJ7dvwrsFeF0UWwQ",
   authDomain: "prologue-16d46.firebaseapp.com",
   projectId: "prologue-16d46",
-  storageBucket: "prologue-16d46.appspot.com",
+  storageBucket: "prologue-16d46.firebasestorage.app",
   messagingSenderId: "454158631172",
   appId: "1:454158631172:web:36fcc7c7bf1c731b835051",
   measurementId: "G-B7FZLZJBDY"

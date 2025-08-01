@@ -13,6 +13,11 @@ export const uploadImageToFirebase = async (
   onProgress?: (progress: string) => void
 ): Promise<UploadResult> => {
   try {
+    console.log('Starting upload with auth state:', auth.currentUser ? 'Authenticated' : 'Not authenticated');
+    console.log('Current user UID:', auth.currentUser?.uid);
+    console.log('Image URI:', imageUri);
+    console.log('Upload type:', type);
+    
     if (!auth.currentUser) {
       return { success: false, error: 'No authenticated user found' };
     }
@@ -72,8 +77,8 @@ export const uploadImageToFirebase = async (
     const timestamp = Date.now();
     const fileName = `${type}-${uid}-${timestamp}.jpg`;
     
-    // Use a simpler storage path that should work with default rules
-    const storageRef = ref(storage, `uploads/${fileName}`);
+    // Use organized storage paths like the web app
+    const storageRef = ref(storage, `athlete-${type}-pics/${fileName}`);
 
     onProgress?.('Uploading to Firebase...');
     console.log('Uploading blob to Firebase Storage:', {
@@ -165,7 +170,8 @@ export const validateImageFile = (fileSize?: number, fileType?: string): string 
 export const testFirebaseStorage = async (): Promise<boolean> => {
   try {
     const storage = getStorage();
-    const testRef = ref(storage, 'test-upload.txt');
+    // Use a path that's allowed by our storage rules
+    const testRef = ref(storage, 'athlete-profile-pics/test-upload.txt');
     const testBlob = new Blob(['test'], { type: 'text/plain' });
     
     console.log('Testing Firebase Storage access...');
