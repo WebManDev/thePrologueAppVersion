@@ -9,7 +9,7 @@ export interface UploadResult {
 
 export const uploadImageToFirebase = async (
   imageUri: string, 
-  type: 'profile' | 'cover',
+  type: 'profile' | 'cover' | 'post',
   onProgress?: (progress: string) => void
 ): Promise<UploadResult> => {
   try {
@@ -78,7 +78,7 @@ export const uploadImageToFirebase = async (
     const fileName = `${type}-${uid}-${timestamp}.jpg`;
     
     // Use organized storage paths like the web app
-    const storageRef = ref(storage, `athlete-${type}-pics/${fileName}`);
+    const storageRef = ref(storage, type === 'post' ? `blog-covers/${uid}/${timestamp}_${fileName}` : `athlete-${type}-pics/${fileName}`);
 
     onProgress?.('Uploading to Firebase...');
     console.log('Uploading blob to Firebase Storage:', {

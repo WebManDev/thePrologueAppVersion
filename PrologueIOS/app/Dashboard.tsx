@@ -339,28 +339,27 @@ export default function Dashboard() {
         </View>
       </View>
 
-      {/* Cover Photo Section */}
-      <View style={styles.coverPhotoContainer}>
-        {currentData?.coverPhotoUrl ? (
-          <Image source={{ uri: currentData.coverPhotoUrl }} style={styles.coverPhoto} />
-        ) : (
-          <View style={styles.coverPhotoPlaceholder} />
-        )}
-        <View style={styles.coverPhotoOverlay} />
-        {isEditing && (
-          <TouchableOpacity 
-            style={styles.coverPhotoEditButton}
-            onPress={() => pickImage('cover')}
-            disabled={uploadingPhoto}
-          >
-            <Camera size={16} color="#fff" />
-            <Text style={styles.coverPhotoEditText}>Edit</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
       {/* Profile Section */}
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
+        {/* Cover Photo Section */}
+        <View style={styles.coverPhotoContainer}>
+          {currentData?.coverPhotoUrl ? (
+            <Image source={{ uri: currentData.coverPhotoUrl }} style={styles.coverPhoto} />
+          ) : (
+            <View style={styles.coverPhotoPlaceholder} />
+          )}
+          <View style={styles.coverPhotoOverlay} />
+          {isEditing && (
+            <TouchableOpacity 
+              style={styles.coverPhotoEditButton}
+              onPress={() => pickImage('cover')}
+              disabled={uploadingPhoto}
+            >
+              <Camera size={16} color="#fff" />
+              <Text style={styles.coverPhotoEditText}>Edit</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.profileSection}>
           {/* Profile Image */}
           <View style={styles.profileImageContainer}>
@@ -696,10 +695,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   logoText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '900',
     color: '#1F2937',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+    fontFamily: 'System',
+    textTransform: 'uppercase',
   },
   headerActions: {
     flexDirection: 'row',

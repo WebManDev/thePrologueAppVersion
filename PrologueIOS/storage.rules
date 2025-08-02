@@ -36,5 +36,11 @@ service firebase.storage {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
     }
+    
+    // Allow post media uploads (using blog-covers path like web app)
+    match /blog-covers/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
   }
 } 

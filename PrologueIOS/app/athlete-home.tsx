@@ -37,8 +37,10 @@ import {
   X,
   FileText,
   MessageCircle,
-  TrendingUp
+  TrendingUp,
+  ChevronDown
 } from "lucide-react-native";
+import * as ImagePicker from 'expo-image-picker';
 import { auth, db } from "../firebaseConfig";
 import { 
   collection, 
@@ -134,11 +136,11 @@ export default function AthleteHomeScreen() {
         const userDoc = await getDoc(doc(db, 'athletes', auth.currentUser.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
-          setProfileData({
-            firstName: data.firstName || "",
-            lastName: data.lastName || "",
-            profileImageUrl: data.profileImageUrl || undefined,
-          });
+                      setProfileData({
+              firstName: data.firstName || "",
+              lastName: data.lastName || "",
+              profileImageUrl: data.profilePhotoUrl || data.profileImageUrl || undefined,
+            });
         }
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -199,8 +201,14 @@ export default function AthleteHomeScreen() {
     setPosting(true);
     try {
       const user = auth.currentUser;
-      await addDoc(collection(db, "posts"), {
-        content: postContent,
+      
+      // Extract media URL from post content if it exists
+      const mediaMatch = postContent.match(/\[Media: (.*?)\]/);
+      const mediaUrl = mediaMatch ? mediaMatch[1] : null;
+      const cleanContent = postContent.replace(/\[Media: .*?\]/, '').trim();
+      
+      const postData: any = {
+        content: cleanContent || postContent,
         createdBy: user?.uid || "anon",
         userType: "athlete",
         createdAt: serverTimestamp(),
@@ -210,7 +218,15 @@ export default function AthleteHomeScreen() {
         viewedBy: [],
         commentsCount: 0,
         shares: 0,
-      });
+      };
+      
+      // Add media information if present
+      if (mediaUrl) {
+        postData.mediaUrl = mediaUrl;
+        postData.mediaType = mediaUrl.includes('.mp4') || mediaUrl.includes('.mov') ? 'video' : 'image';
+      }
+      
+      await addDoc(collection(db, "posts"), postData);
       setPostContent("");
     } catch (err) {
       Alert.alert("Error", "Failed to create post");
@@ -220,9 +236,112 @@ export default function AthleteHomeScreen() {
     }
   };
 
-  // Media picker (simplified)
+  // Upload image to Firebase Storage (direct approach like web app)
+  const uploadImage = async (imageUri: string, type: 'post' | 'profile' | 'cover') => {
+    console.log('Upload started - Auth state:', auth.currentUser ? 'Authenticated' : 'Not authenticated');
+    console.log('Current user UID:', auth.currentUser?.uid);
+    
+    if (!auth.currentUser) {
+      console.error('No authenticated user found');
+      Alert.alert('Upload Failed', 'Please log in to upload photos.');
+      return null;
+    }
+    
+    try {
+      console.log('Starting upload for:', type, 'URI:', imageUri);
+      
+      // Convert local file URI to Blob (like web app approach)
+      const response = await fetch(imageUri);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('Blob created, size:', blob.size, 'type:', blob.type);
+      
+      // Validate file size (10MB limit like web app)
+      const maxSize = 10 * 1024 * 1024;
+      if (blob.size > maxSize) {
+        Alert.alert('File Too Large', 'Please select a file smaller than 10MB.');
+        return null;
+      }
+      
+      // Validate file type
+      if (!blob.type.startsWith('image/')) {
+        Alert.alert('Invalid File Type', 'Please select a valid image file.');
+        return null;
+      }
+      
+      const storage = getStorage();
+      const uid = auth.currentUser.uid;
+      const timestamp = Date.now();
+      const fileName = `${type}-${uid}-${timestamp}.jpg`;
+      
+      // Use same path structure as web app
+      const storageRef = ref(storage, type === 'post' ? `blog-covers/${uid}/${timestamp}_${fileName}` : `athlete-${type}-pics/${fileName}`);
+      
+      console.log('Uploading to Firebase Storage:', storageRef.fullPath);
+      
+      // Upload directly like web app
+      await uploadBytes(storageRef, blob, {
+        contentType: blob.type || 'image/jpeg',
+        customMetadata: {
+          uploadedBy: uid,
+          uploadType: type,
+          originalSize: blob.size.toString(),
+          uploadedAt: new Date().toISOString(),
+        }
+      });
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      console.log('Upload successful:', downloadURL);
+      return downloadURL;
+      
+    } catch (error) {
+      console.error(`Error uploading ${type} photo:`, error);
+      Alert.alert('Upload Failed', 'An unexpected error occurred. Please try again.');
+      return null;
+    }
+  };
+
+  // Media picker for posts
   const pickMedia = async () => {
-    Alert.alert("Media", "Photo/Video picker coming soon!");
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant permission to access your photo library.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const selectedMedia = result.assets[0];
+      
+      // Validate file size
+      if (selectedMedia.fileSize && selectedMedia.fileSize > 10 * 1024 * 1024) {
+        Alert.alert('File Too Large', 'Please select a file smaller than 10MB.');
+        return;
+      }
+      
+      // Upload the media
+      const uploadResult = await uploadImage(selectedMedia.uri, 'post');
+      
+      if (uploadResult) {
+        // Add the media to the post content
+        setPostContent(prev => prev + `\n[Media: ${uploadResult}]`);
+        Alert.alert('Success', 'Media uploaded successfully! You can now post it.');
+      } else {
+        Alert.alert('Upload Failed', 'Failed to upload media. Please try again.');
+      }
+    }
   };
 
   // Like handler
@@ -607,29 +726,30 @@ export default function AthleteHomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Enhanced Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.logo}>PROLOGUE</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerButton}>
-            <Search size={24} color="#1F2937" />
+              {/* Enhanced Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.logoRow}>
+            <Image source={require('../assets/p.png')} style={styles.logoImage} />
+            <Text style={styles.logoText}>PROLOGUE</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={handleProfilePress}>
-            {profileData.profileImageUrl ? (
-              <Image 
-                source={{ uri: profileData.profileImageUrl }} 
-                style={styles.profileImage}
-              />
-            ) : (
-              <View style={[styles.profileImage, styles.avatarPlaceholder]}>
-                <User size={20} color="#9CA3AF" />
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerIconBtn}>
+              <Search size={22} color="#6B7280" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerProfileBtn} onPress={handleProfilePress}>
+              {profileData.profileImageUrl ? (
+                <Image source={{ uri: profileData.profileImageUrl }} style={styles.headerProfileImage} />
+              ) : (
+                <View style={styles.headerProfilePlaceholder}>
+                  <User size={16} color="#6B7280" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIconBtn} onPress={handleProfilePress}>
+              <ChevronDown size={16} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
       <KeyboardAvoidingView 
         style={styles.content}
@@ -643,54 +763,47 @@ export default function AthleteHomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Enhanced Create Post Section */}
-          <View style={styles.createPostCard}>
-            <View style={styles.createPostHeader}>
-              <View style={styles.avatarContainer}>
-                {profileData.profileImageUrl ? (
-                  <Image 
-                    source={{ uri: profileData.profileImageUrl }} 
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                    <User size={24} color="#9CA3AF" />
+                      <View style={styles.createPostCard}>
+              <View style={styles.createPostHeader}>
+                <View style={styles.profileImageContainer}>
+                  <View style={styles.profileImageWrapper}>
+                    {profileData.profileImageUrl ? (
+                      <Image source={{ uri: profileData.profileImageUrl }} style={styles.profileImage} />
+                    ) : (
+                      <View style={styles.profileImagePlaceholder}>
+                        <User size={40} color="#3B82F6" />
+                      </View>
+                    )}
                   </View>
-                )}
+                </View>
+                <View style={styles.createPostContent}>
+                  <TextInput
+                    style={styles.createPostInput}
+                    placeholder="What's on your mind?"
+                    value={postContent}
+                    onChangeText={setPostContent}
+                    multiline
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <View style={styles.createPostActions}>
+                    <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
+                      <Camera size={16} color="#6B7280" />
+                      <Text style={styles.mediaButtonText}>Photo/Video</Text>
+                    </TouchableOpacity>
+                    <View style={styles.spacer} />
+                    <TouchableOpacity 
+                      style={[styles.postButton, (!postContent.trim() || posting) && styles.postButtonDisabled]}
+                      onPress={handlePostSubmit}
+                      disabled={!postContent.trim() || posting}
+                    >
+                      <Text style={styles.postButtonText}>
+                        {posting ? "Posting..." : "Post"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-              <TextInput
-                style={styles.createPostInput}
-                placeholder="What's on your mind?"
-                value={postContent}
-                onChangeText={setPostContent}
-                multiline
-              />
             </View>
-            <View style={styles.createPostActions}>
-              <View style={styles.createPostButtons}>
-                <TouchableOpacity style={styles.mediaButton}>
-                  <Video size={20} color="#6B7280" />
-                  <Text style={styles.mediaButtonText}>Live Video</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
-                  <Camera size={20} color="#6B7280" />
-                  <Text style={styles.mediaButtonText}>Photo/Video</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.mediaButton}>
-                  <Target size={20} color="#6B7280" />
-                  <Text style={styles.mediaButtonText}>Train</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity 
-                style={[styles.postButton, (!postContent.trim() || posting) && styles.postButtonDisabled]}
-                onPress={handlePostSubmit}
-                disabled={!postContent.trim() || posting}
-              >
-                <Text style={styles.postButtonText}>
-                  {posting ? "Posting..." : "Post"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
           {/* Enhanced Tab Navigation */}
           <View style={styles.tabContainer}>
@@ -741,18 +854,64 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    paddingTop: 48,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+    zIndex: 10,
+    elevation: 4,
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoImage: {
+    width: 28,
+    height: 28,
+    marginRight: 8,
+  },
+  logoText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1F2937',
+    letterSpacing: 0.05,
+    fontFamily: 'Impact',
+    textTransform: 'uppercase',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    marginLeft: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerProfileBtn: {
+    padding: 4,
+    borderRadius: 16,
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  headerProfileImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  headerProfilePlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerLeft: {
     flex: 1,
@@ -773,10 +932,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   profileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  profileImageContainer: {
+    marginBottom: 16,
+  },
+  profileImageWrapper: {
+    position: 'relative',
+  },
+  profileImagePlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createPostContent: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  spacer: {
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -831,8 +1010,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
@@ -843,10 +1022,12 @@ const styles = StyleSheet.create({
   mediaButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
   },
   mediaButtonText: {
     fontSize: 14,
@@ -855,14 +1036,16 @@ const styles = StyleSheet.create({
   },
   postButton: {
     backgroundColor: '#3B82F6',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
     elevation: 2,
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   postButtonDisabled: {
     backgroundColor: '#9CA3AF',
