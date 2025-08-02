@@ -104,6 +104,7 @@ export default function AthleteHomeScreen() {
   const [postContent, setPostContent] = useState("");
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedMediaUrl, setSelectedMediaUrl] = useState<string | null>(null);
   const [comments, setComments] = useState<{ [postId: string]: Comment[] }>({});
   const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
   const [showComments, setShowComments] = useState<{ [postId: string]: boolean }>({});
@@ -197,18 +198,13 @@ export default function AthleteHomeScreen() {
 
   // Post submit handler
   const handlePostSubmit = async () => {
-    if (!postContent.trim()) return;
+    if (!postContent.trim() && !selectedMediaUrl) return;
     setPosting(true);
     try {
       const user = auth.currentUser;
       
-      // Extract media URL from post content if it exists
-      const mediaMatch = postContent.match(/\[Media: (.*?)\]/);
-      const mediaUrl = mediaMatch ? mediaMatch[1] : null;
-      const cleanContent = postContent.replace(/\[Media: .*?\]/, '').trim();
-      
       const postData: any = {
-        content: cleanContent || postContent,
+        content: postContent.trim(),
         createdBy: user?.uid || "anon",
         userType: "athlete",
         createdAt: serverTimestamp(),
@@ -221,13 +217,14 @@ export default function AthleteHomeScreen() {
       };
       
       // Add media information if present
-      if (mediaUrl) {
-        postData.mediaUrl = mediaUrl;
-        postData.mediaType = mediaUrl.includes('.mp4') || mediaUrl.includes('.mov') ? 'video' : 'image';
+      if (selectedMediaUrl) {
+        postData.mediaUrl = selectedMediaUrl;
+        postData.mediaType = selectedMediaUrl.includes('.mp4') || selectedMediaUrl.includes('.mov') ? 'video' : 'image';
       }
       
       await addDoc(collection(db, "posts"), postData);
       setPostContent("");
+      setSelectedMediaUrl(null); // Clear selected media after posting
     } catch (err) {
       Alert.alert("Error", "Failed to create post");
       console.error("Failed to post:", err);
@@ -335,8 +332,8 @@ export default function AthleteHomeScreen() {
       const uploadResult = await uploadImage(selectedMedia.uri, 'post');
       
       if (uploadResult) {
-        // Add the media to the post content
-        setPostContent(prev => prev + `\n[Media: ${uploadResult}]`);
+        // Store the media URL separately (not in text content)
+        setSelectedMediaUrl(uploadResult);
         Alert.alert('Success', 'Media uploaded successfully! You can now post it.');
       } else {
         Alert.alert('Upload Failed', 'Failed to upload media. Please try again.');
@@ -785,6 +782,17 @@ export default function AthleteHomeScreen() {
                     multiline
                     placeholderTextColor="#9CA3AF"
                   />
+                  {selectedMediaUrl && (
+                    <View style={styles.mediaPreview}>
+                      <Image source={{ uri: selectedMediaUrl }} style={styles.mediaPreviewImage} />
+                      <TouchableOpacity 
+                        style={styles.removeMediaButton}
+                        onPress={() => setSelectedMediaUrl(null)}
+                      >
+                        <X size={16} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
                   <View style={styles.createPostActions}>
                     <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
                       <Camera size={16} color="#6B7280" />
@@ -792,9 +800,9 @@ export default function AthleteHomeScreen() {
                     </TouchableOpacity>
                     <View style={styles.spacer} />
                     <TouchableOpacity 
-                      style={[styles.postButton, (!postContent.trim() || posting) && styles.postButtonDisabled]}
+                      style={[styles.postButton, (!postContent.trim() && !selectedMediaUrl || posting) && styles.postButtonDisabled]}
                       onPress={handlePostSubmit}
-                      disabled={!postContent.trim() || posting}
+                      disabled={(!postContent.trim() && !selectedMediaUrl) || posting}
                     >
                       <Text style={styles.postButtonText}>
                         {posting ? "Posting..." : "Post"}
@@ -953,6 +961,26 @@ const styles = StyleSheet.create({
   createPostContent: {
     flex: 1,
     marginLeft: 16,
+  },
+  mediaPreview: {
+    marginTop: 8,
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  mediaPreviewImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  removeMediaButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    padding: 4,
   },
   spacer: {
     flex: 1,
