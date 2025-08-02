@@ -236,6 +236,8 @@ export default function Dashboard() {
         if (downloadURL && typeof downloadURL === 'string') {
           profilePhotoUrl = downloadURL;
           setSelectedProfileFile(null);
+          // Update athleteData immediately so UI shows the new photo
+          setAthleteData(prev => ({ ...prev, profilePhotoUrl: downloadURL }));
         }
       }
       
@@ -246,6 +248,8 @@ export default function Dashboard() {
         if (downloadURL && typeof downloadURL === 'string') {
           coverPhotoUrl = downloadURL;
           setSelectedCoverFile(null);
+          // Update athleteData immediately so UI shows the new photo
+          setAthleteData(prev => ({ ...prev, coverPhotoUrl: downloadURL }));
         }
       }
       
@@ -319,6 +323,15 @@ export default function Dashboard() {
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerIconBtn}>
             <Search size={22} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerProfileBtn} onPress={() => setShowUserMenu(true)}>
+            {currentData?.profilePhotoUrl ? (
+              <Image source={{ uri: currentData.profilePhotoUrl }} style={styles.headerProfileImage} />
+            ) : (
+              <View style={styles.headerProfilePlaceholder}>
+                <User size={16} color="#6B7280" />
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowUserMenu(true)}>
             <ChevronDown size={16} color="#6B7280" />
@@ -700,6 +713,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerProfileBtn: {
+    padding: 4,
+    borderRadius: 16,
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  headerProfileImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  headerProfilePlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   coverPhotoContainer: {
     height: 192,
     backgroundColor: '#3B82F6',
@@ -998,8 +1030,9 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.2)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     alignItems: 'flex-end',
+    paddingTop: 100, // Position below header
   },
   userMenuCard: {
     backgroundColor: '#fff',

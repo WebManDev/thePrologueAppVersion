@@ -12,7 +12,7 @@ export default function RoleSelectorScreen() {
     {
       key: "member",
       icon: "💪",
-      title: "MEMBER",
+      title: "MEMBER", 
       desc: "Train with elite coaches",
       gradient: ["#3b82f6", "#1d4ed8"] as const,
       accentGradient: ["#60a5fa", "#3b82f6"] as const,
